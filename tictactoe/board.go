@@ -10,11 +10,13 @@ import (
 	"unicode"
 )
 
+// This struct represents coordinates for input onto the board.
 type coord struct {
-	x int
-	y int
+	x, y int
 }
 
+// This is the main loop for the game, which plays the game itself. This allows the command line argument of -ai, if the player
+// wants to play against an unbeatable AI, and learn the best strategy. Without this flag, the game assumes 2 players.
 func Play(withAI bool) {
 	// Start determines whether the AI or human starts
 	var start int = rand.Int() % 2
@@ -37,66 +39,72 @@ func Play(withAI bool) {
 	}
 	for {
 		if withAI {
+			// The human begins
 			if start == 0 {
 				// Only print the board again if it is the first move, as the board hasn't been displayed yet
 				if moves == 0 {
 					printBoard(board)
 				}
-				x, y = GetCheckInput(board, turn)
-				board = UpdateBoard(board, x, y, turn)
+				x, y = getCheckInput(board, turn)
+				board = updateBoard(board, x, y, turn)
 				moves += 1
-				winner = CheckIfWinner(board, 1) || CheckIfWinner(board, -1)
-				tie = CheckIfTie(board)
+				winner = checkIfWinner(board, 1) || checkIfWinner(board, -1)
+				tie = checkIfTie(board)
 				if winner || tie {
 					break
 				}
-				turn = UpdateTurn(turn)
+				turn = updateTurn(turn)
 				optimalMove := minimax(board, aiMark, humanMark, aiMark, moves)
 				fmt.Println("The AI has made the following move: ")
-				board = UpdateBoard(board, optimalMove.coordinates.x, optimalMove.coordinates.y, turn)
+				board = updateBoard(board, optimalMove.coordinates.x, optimalMove.coordinates.y, turn)
 				moves += 1
-				winner = CheckIfWinner(board, 1) || CheckIfWinner(board, -1)
-				tie = CheckIfTie(board)
+				winner = checkIfWinner(board, 1) || checkIfWinner(board, -1)
+				tie = checkIfTie(board)
 				if winner || tie {
 					break
 				}
-				turn = UpdateTurn(turn)
-			} else {
+				turn = updateTurn(turn)
+			} else { // The AI begins
 				optimalMove := minimax(board, aiMark, humanMark, aiMark, moves)
 				fmt.Println("The AI has made the following move: ")
-				board = UpdateBoard(board, optimalMove.coordinates.x, optimalMove.coordinates.y, turn)
+				board = updateBoard(board, optimalMove.coordinates.x, optimalMove.coordinates.y, turn)
 				moves += 1
-				winner = CheckIfWinner(board, 1) || CheckIfWinner(board, -1)
-				tie = CheckIfTie(board)
+				winner = checkIfWinner(board, 1) || checkIfWinner(board, -1)
+				tie = checkIfTie(board)
 				if winner || tie {
 					break
 				}
-				turn = UpdateTurn(turn)
-				x, y = GetCheckInput(board, turn)
-				board = UpdateBoard(board, x, y, turn)
+				turn = updateTurn(turn)
+				x, y = getCheckInput(board, turn)
+				board = updateBoard(board, x, y, turn)
 				moves += 1
-				winner = CheckIfWinner(board, 1) || CheckIfWinner(board, -1)
-				tie = CheckIfTie(board)
+				winner = checkIfWinner(board, 1) || checkIfWinner(board, -1)
+				tie = checkIfTie(board)
 				if winner || tie {
 					break
 				}
-				turn = UpdateTurn(turn)
+				turn = updateTurn(turn)
 			}
-		} else {
-			printBoard(board)
-			x, y = GetCheckInput(board, turn)
-			board = UpdateBoard(board, x, y, turn)
-			winner = CheckIfWinner(board, 1) || CheckIfWinner(board, -1)
-			tie = CheckIfTie(board)
+		} else { // Two human players
+			if moves == 0 {
+				printBoard(board)
+			}
+			x, y = getCheckInput(board, turn)
+			board = updateBoard(board, x, y, turn)
+			moves += 1
+			winner = checkIfWinner(board, 1) || checkIfWinner(board, -1)
+			tie = checkIfTie(board)
 			if winner || tie {
 				break
 			}
-			turn = UpdateTurn(turn)
+			turn = updateTurn(turn)
 		}
 	}
-	PostGameOutput(winner, tie, withAI, turn, start)
+	postGameOutput(winner, tie, withAI, turn, start)
 }
 
+// printBoard prints the board to the command line, replacing -1s with Xs and 1s with Os,
+// while leaving blank cells (0s) filled with spaces
 func printBoard(board [3][3]int) {
 	for i, row := range board {
 		if i != 0 {
@@ -117,15 +125,17 @@ func printBoard(board [3][3]int) {
 	}
 }
 
-func GetCheckInput(board [3][3]int, turn int) (int, int) {
+// getCheckInput reads the input from the user from command line, and then calls validInput to check if it is a valid move.
+// In the case of a valid move, it returns the x and y coordinates, and if it is not, it reprompts the user for a valid move.
+func getCheckInput(board [3][3]int, turn int) (int, int) {
 	var x, y int
 	reader := bufio.NewReader(os.Stdin)
 	var checked = false
 	for !checked {
 		fmt.Printf("Player %d, Enter the coordinates of your move: ", turn)
 		input, _ := reader.ReadString('\n')
-		x, y = GetCoordinates(input)
-		if ValidInput(board, x, y) {
+		x, y = getCoordinates(input)
+		if validInput(board, x, y) {
 			checked = true
 		} else {
 			printBoard(board)
@@ -134,7 +144,8 @@ func GetCheckInput(board [3][3]int, turn int) (int, int) {
 	return x, y
 }
 
-func ValidInput(board [3][3]int, x int, y int) bool {
+// validInput checks if the inputted x and y coordinates are valid for the board, both within the bounds and in an unmarked cell.
+func validInput(board [3][3]int, x int, y int) bool {
 	if x < 0 || x > 2 || y < 0 || y > 2 {
 		return false
 	}
@@ -145,7 +156,8 @@ func ValidInput(board [3][3]int, x int, y int) bool {
 	return true
 }
 
-func UpdateBoard(board [3][3]int, x int, y int, turn int) [3][3]int {
+// updateBoard adds the new mark to the board, and prints the board before returning it
+func updateBoard(board [3][3]int, x int, y int, turn int) [3][3]int {
 	if turn == 1 {
 		board[x][y] = -1
 	} else if turn == 2 {
@@ -155,7 +167,8 @@ func UpdateBoard(board [3][3]int, x int, y int, turn int) [3][3]int {
 	return board
 }
 
-func CheckIfWinner(board [3][3]int, mark int) bool {
+// This checks the win conditions of tic tac toe, namely the rows, columns, and diagonals of the board
+func checkIfWinner(board [3][3]int, mark int) bool {
 	for i := 0; i < 3; i++ {
 		if board[i][0] == board[i][1] && board[i][1] == board[i][2] && board[i][0] == mark {
 			return true
@@ -175,7 +188,7 @@ func CheckIfWinner(board [3][3]int, mark int) bool {
 
 // This function checks if there are any empty spaces on the board, and if so, returns that it is not a tie. If there are no more
 // valid cells left on the board, then the game is declared a tie.
-func CheckIfTie(board [3][3]int) bool {
+func checkIfTie(board [3][3]int) bool {
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
 			if board[i][j] == 0 {
@@ -186,9 +199,9 @@ func CheckIfTie(board [3][3]int) bool {
 	return true
 }
 
-// GetCoordinates takes the coordinates and finds out if they are valid coordinates for use, and then uses them, or returns invalid
-// coordinates such that ValidInput will return false
-func GetCoordinates(input string) (int, int) {
+// getCoordinates takes the coordinates and finds out if they are valid coordinates for use, and then uses them, or returns invalid
+// coordinates such that validInput will return false
+func getCoordinates(input string) (int, int) {
 	coordinates := strings.FieldsFunc(input, func(r rune) bool {
 		return !unicode.IsNumber(r)
 	})
@@ -204,8 +217,8 @@ func GetCoordinates(input string) (int, int) {
 	return -1, -1
 }
 
-// IsEmpty checks what spots in the board are empty, and returns them as 1 values in an all 0 array
-func IsEmpty(board [3][3]int) []coord {
+// isEmpty checks what spots in the board are empty, and returns them as 1 values in an all 0 array
+func isEmpty(board [3][3]int) []coord {
 	empty := make([]coord, 0)
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
@@ -215,4 +228,30 @@ func IsEmpty(board [3][3]int) []coord {
 		}
 	}
 	return empty
+}
+
+// updateTurn updates the turn variable to the next turn.
+func updateTurn(turn int) int {
+	return turn%2 + 1
+}
+
+// postGameOutput outputs either a congratulations on cheating to beat the AI, a message there is no shame losing to a perfect AI, or
+// that they did a good job when they tied the AI. In the case of 2 players, it congratulates the winning player or both in the case
+// of a tie.
+func postGameOutput(winner bool, tie bool, withAI bool, turn int, start int) {
+	if withAI {
+		if winner && (start == 0 && turn == 1 || start == 1 && turn == 2) {
+			fmt.Println("Congratulations! You beat an unbeatable AI! Probably by modifying the board before playing ;)")
+		} else if winner && start == 0 && turn == 2 || winner && start == 1 && turn == 1 {
+			fmt.Println("No shame in losing to a perfect AI! Get em next time!")
+		} else if tie {
+			fmt.Println("Good job! You tied the AI!")
+		}
+	} else {
+		if winner {
+			fmt.Printf("Congratulations Player %d! You won!\n", turn)
+		} else {
+			fmt.Println("Neither player won! Well played to you both!")
+		}
+	}
 }
